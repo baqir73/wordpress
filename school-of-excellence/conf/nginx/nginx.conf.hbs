@@ -1,0 +1,77 @@
+user  www-data;
+
+http{
+    client_header_buffer_size 1024k;
+    proxy_buffer_size   1024k;
+    proxy_buffers   4 1024k;
+    proxy_busy_buffers_size   1024k;
+    large_client_header_buffers 4 1024k;
+
+    server{
+        listen 8080 ssl;
+        include snippets/self-signed.conf;
+        server_name _;
+        include includes/mime-types.conf;
+        root /var/www/html;
+
+        index index.php index.html index.htm index.nginx-debian.html;
+
+        location ~ \.php$ {
+            include fastcgi_params;
+            fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            fastcgi_param PATH_INFO $fastcgi_path_info;
+
+        }
+        include includes/restrictions.conf;
+
+        #
+        # Gzip rules
+        #
+        include includes/gzip.conf;
+
+        #
+        # WordPress Rules
+        #
+        include includes/wordpress-single.conf;
+
+
+        #
+        # Forward 404's to WordPress
+        #
+        error_page 404 = @wperror;
+        location @wperror {
+            rewrite ^/(.*)$ /index.php?q=$1 last;
+        }
+
+        #
+        # Static file rules
+        #
+        location ~* \.(?:css|js)$ {
+            access_log        off;
+            log_not_found     off;
+            add_header        Cache-Control "no-cache, public, must-revalidate, proxy-revalidate";
+        }
+
+        location ~* \.(?:jpg|jpeg|gif|png|ico|xml)$ {
+            access_log        off;
+            log_not_found     off;
+            expires           5m;
+            add_header        Cache-Control "public";
+        }
+
+        location ~* \.(?:eot|woff|woff2|ttf|svg|otf) {
+            access_log        off;
+            log_not_found     off;
+
+            expires           5m;
+            add_header        Cache-Control "public";
+
+            # allow CORS requests
+            add_header        Access-Control-Allow-Origin *;
+        }
+
+        
+    }
+}
+events { }
